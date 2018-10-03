@@ -1,5 +1,8 @@
+#!/bin/bash
+
 source /opt/ros/kinetic/setup.bash
-source ../../devel/setup.bash
-patch -fs `rospack find stdr_resources`/resources/specifications/stdr_specifications.xml < `rospack find braitenberg_vehicles`/patches/stdr_specifications.patch
+#source ../../devel/setup.bash
+#patch -fs `rospack find stdr_resources`/resources/specifications/stdr_specifications.xml < `rospack find braitenberg_vehicles`/patches/stdr_specifications.patch
+patch -fs `rospack find stdr_resources`/resources/specifications/stdr_specifications.xml < ./patches/stdr_specifications.patch
 
 
