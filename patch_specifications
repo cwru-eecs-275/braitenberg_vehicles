@@ -1,8 +1,19 @@
 #!/bin/bash
+if [ !$ROS_VER ]
+then
+    export ROS_VER=`ls /opt/ros`
+    source /opt/ros/$ROS_VER/setup.bash
+fi
 
-source /opt/ros/kinetic/setup.bash
-#source ../../devel/setup.bash
-#patch -fs `rospack find stdr_resources`/resources/specifications/stdr_specifications.xml < `rospack find braitenberg_vehicles`/patches/stdr_specifications.patch
-patch -fs `rospack find stdr_resources`/resources/specifications/stdr_specifications.xml < ./patches/stdr_specifications.patch
-
+export STDR_RESOURCES=`rospack find stdr_resources`
+export STDR_SPECS=$STDR_RESOURCES/resources/specifications/stdr_specifications.xml
+export PATCH_FILE=./patches/stdr_specifications.patch
+export PATCH_CMD="patch -fs $STDR_SPECS --dry-run < $PATCH_FILE"
+if [ -w $STDR_SPECS ]
+then
+    patch -fs $STDR_SPECS < $PATCH_FILE
+else
+    echo "Identified STDR Simulator as installed and requesting root privileges to patch in that directory."
+    sudo patch -fs $STDR_SPECS < $PATCH_FILE
+fi
 
