@@ -1,19 +1,74 @@
 #!/bin/bash
-if [ !$ROS_VER ]
+
+if [ ${#ROS_PACKAGE_PATH} -lt 1 ]
 then
-    export ROS_VER=`ls /opt/ros`
-    source /opt/ros/$ROS_VER/setup.bash
+    ROS_VERS=($(ls /opt/ros))
+    if [ ${#ROS_VERS[@]} -gt 1 ]
+    then
+        select ver in ${ROS_VERS[@]}; do echo $ver; break; done
+        source /opt/ros/$ver/setup.bash
+    elif [ ${#ROS_VERS[@]} -eq 0 ]
+    then
+        if [ -d /opt/ros ]
+        then
+            echo "The ROS installation is corrupted."
+        else
+            echo "ROS has not been installed."
+        fi
+        exit
+    else
+        ver=$ROS_VERS
+        source /opt/ros/$ver/setup.bash
+    fi
+
+    if [ ${#ROS_PACKAGE_PATH} -lt 1 ]
+    then
+        echo "ROS appears misconfigured.  It may not be installed or there may be another issue."
+    fi
 fi
 
-export STDR_RESOURCES=`rospack find stdr_resources`
-export STDR_SPECS=$STDR_RESOURCES/resources/specifications/stdr_specifications.xml
-export PATCH_FILE=./patches/stdr_specifications.patch
-export PATCH_CMD="patch -fs $STDR_SPECS --dry-run < $PATCH_FILE"
-if [ -w $STDR_SPECS ]
+
+t=`pwd`
+searchstring=src
+rest=${t#*$searchstring}
+
+LOCAL_FILE=$(find ${t:0:$(( ${#t} - ${#rest}))} -name stdr_specifications.xml)
+INSTALLED_FILE=$(find $ROS_PACKAGE_PATH/stdr_resources -name stdr_specifications.xml)
+
+STDR_SPECS=/resources/specifications/stdr_specifications.xml
+PATCH_FILE=$(dirname $(realpath $0))/patches/stdr_specifications.patch
+
+PATCH_OPTS="-fsr -"
+#PATCH_DRY_RUN=--dry_run
+
+
+if [  ${#LOCAL_FILE} -gt 0 ] && [ -e $LOCAL_FILE ]
 then
-    patch -fs $STDR_SPECS < $PATCH_FILE
+    patch $PATCH_DRY_RUN $PATCH_OPTS $LOCAL_FILE < $PATCH_FILE >/dev/null 2>/dev/null
+    if [ $? -eq 0 ]
+    then
+        echo "Pached local workspace file successfully"
+    else
+        echo "Local workspace file appears already patched"
+    fi
 else
-    echo "Identified STDR Simulator as installed and requesting root privileges to patch in that directory."
-    sudo patch -fs $STDR_SPECS < $PATCH_FILE
+    echo "No local workspace file to patch"
+    echo "Try changing to the stdr_simulator package directory and using the following command:"
+    echo "`dirname $(realpath $0)`"
 fi
+
+if [  ${#INSTALLED_FILE} -gt 0 ] && [ -e $INSTALLED_FILE ]
+then
+    echo "Patching an installed file requires sudo"
+    sudo patch $PATCH_DRY_RUN $PATCH_OPTS $INSTALLED_FILE < $PATCH_FILE >/dev/null 2>/dev/null
+    if [ $? -eq 0 ]
+    then
+        echo "Patched installed file successfully"
+    else
+        echo "Installed file appears already patched"
+    fi
+else
+    echo "No installed file to patch"
+fi
+
 

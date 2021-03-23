@@ -1,0 +1,98 @@
+#! /bin/bash
+
+echo "This script was developed to work with ROS Melodic."
+echo "ROS Noetic has a few more tweaks for installing the STDR Simulator."
+
+old_dir=$(pwd)
+STDR_WS=$HOME/stdr_ws
+
+# Setup ROS
+if [ ${#ROS_PACKAGE_PATH} -lt 1 ]
+then
+    ROS_VERS=($(ls /opt/ros))
+    if [ ${#ROS_VERS[@]} -gt 1 ]
+    then
+        select ver in ${ROS_VERS[@]}; do echo $ver; break; done
+        source /opt/ros/$ver/setup.bash
+    elif [ ${#ROS_VERS[@]} -eq 0 ]
+    then
+        if [ -d /opt/ros ]
+        then
+            echo "The ROS installation is corrupted."
+        else
+            echo "ROS has not been installed."
+        fi
+        exit
+    else
+        ver=ROS_VERS
+        source /opt/ros/$ver/setup.bash
+    fi
+
+    if [ ${#ROS_PACKAGE_PATH} -lt 1 ]
+    then
+        echo "ROS appears misconfigured.  It may not be installed or there may be another issue."
+    fi
+else 
+    ver=$ROS_DISTRO
+fi
+
+if [ $ver == 'noetic' ]; then
+    echo "This script does not yet work with ROS Noetic."
+    exit
+fi
+
+echo "Checking for map-server and libqt4-dev"
+# Check if map-server is installed
+MAP_SERVER=$(dpkg --get-selections | grep map-server)
+if [ ${#ROS_PACKAGE_PATH} -lt 1 ]
+then
+    echo "Installing missing dependencies.  This requires sudo privileges."
+    sudo apt‐get install libqt4‐dev ros‐melodic‐map‐server
+fi
+ 
+# Test if GIT is installed and install it if it is missing
+GIT_EXE=$(which git)
+
+echo "Checking for git"
+if [ ${#GIT_EXE} -lt 1 ]; then
+    echo "GIT needs to be installed."
+    sudo apt-get install -y git
+fi
+
+echo "Checking of the STDR Simulator code is where it is expected"
+if [ ! -d $STDR_WS/src/stdr_simulator ]; then
+    echo "Cloning the STDR Simulator code"
+    mkdir -p $STDR_WS/src
+    cd $STDR_WS
+    git clone https://github.com/stdr-simulator-ros-pkg/stdr_simulator.git $STDR_WS/src
+fi
+
+cd $STDR_WS
+
+echo "Applying patch to the STDR Simulator"
+$old_dir/patch_specifications
+
+if [ $? -gt 0 ]; then
+    echo "Problem patching specifications.  Exiting."
+    exit
+fi
+
+echo "Making the STDR Simulator."
+catkin_make 
+
+if [ $? -gt 0 ]; then
+    echo "Problem compiling STDR Simulator.  Exiting."
+    exit
+fi
+
+echo "Installing the STDR Simulator.  This requires sudo privileges."
+sudo -- /bin/bash -c "source /opt/ros/$ver/setup.bash; catkin_make -DCMAKE_INSTALL_PREFIX=/opt/ros/$ver install" 
+
+if [ -d $ROS_PACKAGE_PATH/stdr_launchers ]; then
+    echo "It appears everything was installed successfully."
+    echo "In a new terminal run the following commands to verify the STDR Simultor runs:"
+    echo "source /opt/ros/$ver/setup.bash"
+    echo "roslaunch stdr_launchers server_with_map_and_gui_plus_robot.launch"
+else
+    echo "It appears the installation did not succeed."
+fi
