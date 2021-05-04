@@ -1,0 +1,7 @@
+
+# VS code files
+*.vscode
+
+# Some generic backup file extensions
+*~
+.#*

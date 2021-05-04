@@ -10,6 +10,6 @@
 	
 	<node pkg="stdr_robot" type="robot_handler" name="$(anon robot_spawn)" args="add $(find braitenberg_vehicles)/robots/simple_robot_C02.xml 8 6 0" />
         
-	<node name="robot_controller" pkg="braitenberg_vehicles" type="robot_controller"/>
+	<node ns="robot0" name="braitenberg_vehicles" pkg="braitenberg_vehicles" type="braitenberg_vehicles"/>
 
 </launch>
