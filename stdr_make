@@ -4,7 +4,7 @@ echo "This script was developed to work with ROS Melodic."
 echo "ROS Noetic has a few more tweaks for installing the STDR Simulator."
 
 old_dir=$(pwd)
-STDR_WS=$HOME/stdr_ws
+STDR_WS=/tmp/stdr_ws
 
 # Setup ROS
 if [ ${#ROS_PACKAGE_PATH} -lt 1 ]
@@ -36,20 +36,12 @@ else
     ver=$ROS_DISTRO
 fi
 
-if [ $ver == 'noetic' ]; then
-    echo "This script does not yet work with ROS Noetic."
-    exit
+if [ $ver == 'melodic' ]; then
+    echo "Installing QT4 dependencies.  This requires sudo privileges."
+    sudo apt-get install -y libqt4-dev
 fi
 
-echo "Checking for map-server and libqt4-dev"
-# Check if map-server is installed
-MAP_SERVER=$(dpkg --get-selections | grep map-server)
-if [ ${#ROS_PACKAGE_PATH} -lt 1 ]
-then
-    echo "Installing missing dependencies.  This requires sudo privileges."
-    sudo apt‐get install libqt4‐dev ros‐melodic‐map‐server
-fi
- 
+		
 # Test if GIT is installed and install it if it is missing
 GIT_EXE=$(which git)
 
@@ -64,17 +56,43 @@ if [ ! -d $STDR_WS/src/stdr_simulator ]; then
     echo "Cloning the STDR Simulator code"
     mkdir -p $STDR_WS/src
     cd $STDR_WS
-    git clone https://github.com/stdr-simulator-ros-pkg/stdr_simulator.git $STDR_WS/src
+    if [ $ver == 'melodic' ]; then
+        git clone https://github.com/stdr-simulator-ros-pkg/stdr_simulator.git $STDR_WS/src
+
+		echo "Checking for map-server and libqt4-dev.  They are not properly declared in package."
+		# Check if map-server is installed
+		MAP_SERVER=$(dpkg --get-selections | grep map-server)
+		if [ ${#MAP_SERVER} -lt 1 ]
+		then
+			echo "Installing missing dependencies.  This requires sudo privileges."
+			sudo apt-get install -y ros-$ver-map-server libqt4-dev
+		fi
+
+        cd $STDR_WS
+
+        echo "Applying patch to the STDR Simulator"
+        $old_dir/patch_specifications
+
+        if [ $? -gt 0 ]; then
+          echo "Problem patching specifications.  Exiting."
+          exit
+        fi
+    fi
+
+    if [ $ver == 'noetic' ]; then
+        git clone --branch noetic-devel https://github.com/cwru-eecs-275/stdr_simulator.git $STDR_WS/src
+    fi
 fi
 
 cd $STDR_WS
 
-echo "Applying patch to the STDR Simulator"
-$old_dir/patch_specifications
-
-if [ $? -gt 0 ]; then
-    echo "Problem patching specifications.  Exiting."
-    exit
+which rosdep
+ret=$?
+if [ $ret -eq 0 ]; then
+	echo "Install all dependencies using rosdep"
+	rosdep install --from-paths src  --ignore-src -r -y
+else
+	echo "It appears rosdep is not available.  It may be necessary to install it or install dependencies manually."
 fi
 
 echo "Making the STDR Simulator."
@@ -88,7 +106,11 @@ fi
 echo "Installing the STDR Simulator.  This requires sudo privileges."
 sudo -- /bin/bash -c "source /opt/ros/$ver/setup.bash; catkin_make -DCMAKE_INSTALL_PREFIX=/opt/ros/$ver install" 
 
-if [ -d $ROS_PACKAGE_PATH/stdr_launchers ]; then
+source /opt/ros/$ver/setup.bash
+rospack find stdr_launchers
+ret=$?
+
+if [ $ret -eq 0 ]; then
     echo "It appears everything was installed successfully."
     echo "In a new terminal run the following commands to verify the STDR Simultor runs:"
     echo "source /opt/ros/$ver/setup.bash"
@@ -96,3 +118,4 @@ if [ -d $ROS_PACKAGE_PATH/stdr_launchers ]; then
 else
     echo "It appears the installation did not succeed."
 fi
+
