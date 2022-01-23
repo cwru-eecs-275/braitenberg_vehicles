@@ -1,7 +1,9 @@
 #! /bin/bash
 
-echo "This script was developed to work with ROS Melodic."
-echo "ROS Noetic has a few more tweaks for installing the STDR Simulator."
+echo "This script installs the STDR Simulator."
+echo "It is tested and works with Melodic."
+echo "It also works with a forked version of the STDR"
+echo "Simulator that compiles for Ubuntu Foxy/ROS Noetic."
 
 old_dir=$(pwd)
 STDR_WS=/tmp/stdr_ws
@@ -37,7 +39,9 @@ else
 fi
 
 if [ $ver == 'melodic' ]; then
-    echo "Installing QT4 dependencies.  This requires sudo privileges."
+    echo "Installing Qt4 dependencies that are not properly identified in package."
+    echo "This requires sudo privileges."
+    echo "sudo apt-get install -y libqt4-dev"
     sudo apt-get install -y libqt4-dev
 fi
 
@@ -55,44 +59,29 @@ echo "Checking of the STDR Simulator code is where it is expected"
 if [ ! -d $STDR_WS/src/stdr_simulator ]; then
     echo "Cloning the STDR Simulator code"
     mkdir -p $STDR_WS/src
-    cd $STDR_WS
-    if [ $ver == 'melodic' ]; then
-        git clone https://github.com/stdr-simulator-ros-pkg/stdr_simulator.git $STDR_WS/src
-
-		echo "Checking for map-server and libqt4-dev.  They are not properly declared in package."
-		# Check if map-server is installed
-		MAP_SERVER=$(dpkg --get-selections | grep map-server)
-		if [ ${#MAP_SERVER} -lt 1 ]
-		then
-			echo "Installing missing dependencies.  This requires sudo privileges."
-			sudo apt-get install -y ros-$ver-map-server libqt4-dev
-		fi
-
-        cd $STDR_WS
-
-        echo "Applying patch to the STDR Simulator"
-        $old_dir/patch_specifications
-
-        if [ $? -gt 0 ]; then
-          echo "Problem patching specifications.  Exiting."
-          exit
-        fi
-    fi
-
-    if [ $ver == 'noetic' ]; then
-        git clone --branch noetic-devel https://github.com/cwru-eecs-275/stdr_simulator.git $STDR_WS/src
-    fi
+    git clone --branch $ver-devel https://github.com/cwru-eecs-275/stdr_simulator.git $STDR_WS/src
 fi
 
 cd $STDR_WS
 
 which rosdep
 ret=$?
+
 if [ $ret -eq 0 ]; then
 	echo "Install all dependencies using rosdep"
 	rosdep install --from-paths src  --ignore-src -r -y
 else
-	echo "It appears rosdep is not available.  It may be necessary to install it or install dependencies manually."
+	echo "It appears rosdep is not available.  Attempting to install known packages manually."
+    echo "It may be necessary to install rosdep and/or install packages manually."
+    echo "This requires sudo privileges."
+    if [ $ver == "noetic" ]; then
+        echo "sudo apt-get install -y ros-$ver-map-server ros-$ver-qt-gui libqt5core5a libqt5gui5 libqt5widgets5 "
+        sudo apt-get install -y ros-$ver-map-server ros-$ver-qt-gui libqt5core5a libqt5gui5 libqt5widgets5
+    fi
+    if [ $ver == "melodic" ]; then
+        echo "sudo apt-get install -y ros-$ver-map-server libqt4-dev"
+        sudo apt-get install -y ros-$ver-map-server libqt4-dev
+    fi
 fi
 
 echo "Making the STDR Simulator."
